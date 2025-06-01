@@ -10,3 +10,22 @@
 # * Last Modified : 2025-06-01
 # ------------------------------------------------------------------------------
 #
+# / *************************************************************************** /
+
+# Retrive static file from the project repository - change these to your own repository if needed!
+_url="https://raw.githubusercontent.com/atirelli3/archx/refs/heads/main/static"
+_dirname=".archxtmp"  # Temporary directory for store support files of the script
+
+mkdir -p "$_dirname"
+wget -q0 "$_dirname/static" "$_url" 2>/dev/null
+[ -f "$_dirname/static" ] || { echo "Failed to download static configuration file!"; exit 1; }
+source "$_dirname/static"  # Load the static variables necessary for the script
+
+_machine_name=$1  # Name of the machine to configure, passed as the first argument
+_machine_url="${MACHINE_URL}/$_machine_name"  # URL to retrieve the machine configuration file
+
+[ -z "$_machine_name" ] && { echo "Usage: $0 <machine_name>"; exit 1; }
+wget -q0 "$_dirname/$_machine_name" "$_machine_url" 2>/dev/null
+[ -f "$_dirname/$_machine_name" ] || { echo "Failed to download machine configuration file!"; exit 1; }
+source "$_dirname/$_machine_name"  # Load the machine configuration file
+# ------------------------------------------------------------------------------
