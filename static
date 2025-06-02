@@ -1,3 +1,12 @@
 CONF_URL=""
 CACHYOS_URL=""
 MACHINE_URL=""
+
+KERNEL_MODULES_to_LOAD=(
+  dm-crypt
+  dm-mod
+)
+
+KERNEL_MODULES_to_REMOVE=(
+  pcspkr
+)

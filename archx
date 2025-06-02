@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------------------
 # * Author        : Tirelli Andrea
 # * GitHub        : @atirelli3
-# * Description   : ArchX - A simple script to configure a machine with Arch Linux.
+# * Description   : ArchX - Simple script to configure a machine with Arch Linux.
 # * License       : MIT License
 # * Version       : 0.6.1
 # * Create Date   : 2025-06-01
@@ -44,3 +44,63 @@ fi
 source "$_dirname/$_machine"  # Load the machine configuration file, ready to start the ArchX script!
 
 # ------------------------------------------------------------------------------
+
+
+
+# / *************************************************************************** /
+
+# Setup kernel modules (load and remove of them)
+for action in load remove; do
+  _varname="KERNEL_MODULES_to_${action^^}"  # Get KERNEL_MODULES_to_LOAD or KERNEL_MODULES_to_REMOVE
+  for module in "${!varname}"; do
+    if [[ $action == "load" ]]; then
+      modprobe "$module"
+    else
+      rmmod "$module"
+    fi
+  done
+done
+
+
+# Setup general locale of ISO installation
+keyboard="${KEYBOARD:-us}"                # Default keyboard layout is 'us'
+timezone="${TIMEZONE:-America/New_York}"  # Default timezone is 'America/New_York'
+
+loadkeys "$keyboard"
+timedatectl set-timezone "$timezone" && timedatectl set-ntp true
+
+
+# Setup package manager configuration of ISO installation
+declare -A pkgmanager_files=(
+  [/etc/pacman.conf]="$CONF_URL/etc/pacman.conf"
+  [/etc/makepkg.conf]="$CONF_URL/etc/makepkg.conf"
+)
+
+for path in "${pkgmanager_files[@]}"; do
+  wget -q0 "path" "${pkgmanager_files[$path]}"
+done
+
+
+# Setup mirrorlist and keyrings of ISO installation
+age="${MIRRORLIST_AGE:-2}"                                  # Default age of mirrors is 2 hours
+sort_type="${MIRRORLIST_SORT_TYPE:-rate}"                   # Default sort type is 'rate'
+sort_num="${MIRRORLIST_SORT_NUM:-6}"                        # Default number of mirrors to sort is 6
+country_list="${MIRRORLIST_COUNTRY_LIST:-"United States"}"  # Default country list for mirrors
+
+reflector --verbose \
+  --protocol https \
+  --age "$age" \
+  --sort "$sort_type" -l "$sort_num" \
+  --country "$country_list" \
+  --save /etc/pacman.d/mirrorlist
+pacman -Syy
+
+pacman -S --noconfirm archlinux-keyring
+pacman-key --init && pacman-key --populate archlinux
+pacman -Syy  # Re-sync pacman, all Done!
+
+# ------------------------------------------------------------------------------
+
+
+
+# / *************************************************************************** /
