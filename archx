@@ -104,3 +104,45 @@ pacman -Syy  # Re-sync pacman, all Done!
 
 
 # / *************************************************************************** /
+
+target="/dev/${DISK:-sda}"  # Default target disk is 'sda'
+
+# Use NVMe secure erase, otherwise use blkdiscard
+if [[ "$target" =~ ^/dev/nvme[0-9]+n[0-9]+$ ]]; then
+  nvme format "$target" --ses=1
+else
+  blkdiscard -f "$target"
+fi
+
+wipefs -af "$target"                # Wipe all filesystem signatures from the target disk
+sgdisk --zap-all --clear "$target"  # Clear all partition tables and signatures
+
+
+# Secure wipe disk with OpenSSL and dd
+# Reference: https://wiki.archlinux.org/title/Securely_wipe_disk/Tips_and_tricks#dd_-_advanced_example
+pass=$(tr -cd '[:alnum:]' < /dev/urandom | head -c128)
+openssl enc -aes-256-ctr -pass pass:"$pass" -nosalt -in /dev/zero | \
+  dd obs=64K ibs=4K of="$target" oflag=direct status=progress
+
+
+# Create partitions on the target disk
+efi_size="${EFI_SIZE:-512M}"  # Default EFI partition size is 512M
+boot_size="${BOOT_SIZE:-1G}"  # Default boot partition size is 1G
+
+sys_type="8300"      # Default system partition type is '8300' (Linux filesystem)
+if [ "$ENCRYPTION" == "yes" ]; then
+    sys_type="8309"  # If encryption is enabled, set system partition type to '8309' (Linux filesystem with encryption)
+fi
+
+sgdisk -n 1:0:+${efi_size}  -t 1:ef00 \
+       -n 2:0:+${boot_size} -t 2:8300 \
+       -n 3:0:0              -t 3:$sys_type "$target"
+
+
+partprobe $target    # Update partition's table, Done!
+
+# ------------------------------------------------------------------------------
+
+
+
+# / *************************************************************************** /

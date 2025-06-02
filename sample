@@ -1,2 +1,9 @@
 TIMEZONE="America/New_York"
 KEYBOARD="us"
+
+DISK="sda"
+SSD="no"
+
+EFI_SIZE="512M"
+BOOT_SIZE="1G"
+ROOT_SIZE="100G"
