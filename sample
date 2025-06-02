@@ -13,3 +13,5 @@ ENCRYPTION_LABEL="cryptdev"
 ENCRYPTION_PASSPHRASE="changeme"
 
 LVM_LABEL="archlinux"
+
+BTRFS_OPTS="rw,noatime,compress-force=zstd:1,space_cache=v2"

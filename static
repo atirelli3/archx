@@ -10,3 +10,40 @@ KERNEL_MODULES_to_LOAD=(
 KERNEL_MODULES_to_REMOVE=(
   pcspkr
 )
+
+EFI_MOUNT="/efi"
+BOOT_MOUNT="/boot"
+
+BTRFS_SUBVOLS=(
+  @
+  @snapshots
+  @cache
+  @log
+  @spool
+  @tmp
+  @flatpak
+  @nix
+  @ollama
+)
+
+BTRFS_MOUNTS=(
+  [@snapshots]="/mnt/.snapshots"
+  [@cache]="/mnt/var/cache"
+  [@log]="/mnt/var/log"
+  [@spool]="/mnt/var/spool"
+  [@tmp]="/mnt/var/tmp"
+  [@flatpak]="/mnt/var/lib/flatpak"
+  [@nix]="/mnt/nix"
+  [@ollama]="/mnt/var/lib/ollama"
+)
+
+BTRFS_MOUNT_OPTS=(
+  [@snapshots]="$sv_opts"
+  [@cache]="rw,noatime,compress=no,space_cache=v2,ssd"
+  [@log]="rw,noatime,nodatacow,compress=no,space_cache=v2"
+  [@spool]="rw,noatime,compress=no,space_cache=v2"
+  [@tmp]="rw,noatime,nodatacow,compress=no,space_cache=v2,discard=async"
+  [@flatpak]="rw,noatime,compress-force=zstd:3,space_cache=v2,ssd"
+  [@nix]="$sv_opts"
+  [@ollama]="rw,noatime,compress=zstd:1,space_cache=v2,ssd"
+)

@@ -7,7 +7,7 @@
 # * License       : MIT License
 # * Version       : 0.6.1
 # * Create Date   : 2025-06-01
-# * Last Modified : 2025-06-01
+# * Last Modified : 2025-06-02
 # ------------------------------------------------------------------------------
 #
 # / *************************************************************************** /
@@ -210,5 +210,65 @@ for volume in root home; do
   lv_path="/dev/mapper/${vg_name}-${volume}"  # Logical volume path
   mkfs.btrfs -L "$volume" "$lv_path"          # Format logical volumes with Btrfs
 done
+
+# ------------------------------------------------------------------------------
+
+
+
+# / *************************************************************************** /
+
+root_partition="/dev/mapper/${vg_name}-root"  # Root partition
+home_partition="/dev/mapper/${vg_name}-home"  # Home partition
+
+# Create BtrFS subvolumes
+btrfs_subvolumes=$BTRFS_SUBVOLS
+
+mount "$root_partition" "/mnt"
+for subvolume in "${btrfs_subvolumes[@]}"; do
+  btrfs subvolume create "mnt/$subvolume"
+done
+unmount "/mnt"
+
+# Mount BtrFS subvolumes with desired options
+btrfs_root_opts="${BTRFS_OPTS:-rw,noatime,compress-force=zstd:1,space_cache=v2}"
+btrfs_home_opts="${BTRFS_OPTS:-rw,noatime,compress-force=zstd:1,space_cache=v2}"
+btrfs_subvolumes_mounts="$BTRFS_MOUNTS"
+btrfs_subvolumes_opts="$BTRFS_MOUNT_OPTS"
+
+mount -o "$btrfs_root_opts",subvol=@ "$root_partition" /mnt
+for mount in "${btrfs_subvolumes_mounts[@]}"; do
+  mkdir -p "${btrfs_subvolumes_mounts[$mount]}"
+  mount -o "${btrfs_subvolumes_opts[$mount]}",subvol="$mount" "${btrfs_subvolumes_mounts[$mount]}"
+done
+
+mount --mkdir "$home_partition" /mnt/home
+btrfs subvolume create /mnt/home/@home && unmount /mnt/home
+mount -o "$btrfs_home_opts",subvol=@home "$home_partition" /mnt/home
+
+# ------------------------------------------------------------------------------
+
+
+
+# / *************************************************************************** /
+
+efi_partition="/dev/${target_part}1"   # EFI partition
+efi_mount="/mnt$EFI_MOUNT"             # Mount point for EFI partition
+
+boot_partition="/dev/${target_part}2"  # Boot partition
+boot_mount="/mnt$BOOT_MOUNT"           # Mount point for boot partition
+
+mount --mkdir "$boot_partition" "$boot_mount"
+mount --mkdir "$efi_partition" "$efi_mount"
+
+# ------------------------------------------------------------------------------
+
+
+
+# / *************************************************************************** /
+
+pkgs_to_install=""
+
+pacstrap -K /mnt "${pkgs_to_install[@]}"
+genfstab -U -p /mnt >> /mnt/etc/fstab
 
 # ------------------------------------------------------------------------------
