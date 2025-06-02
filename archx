@@ -171,3 +171,44 @@ if [[ "$encryption" == "yes" ]]; then
 
   echo -n "$luks_pass" | cryptsetup open "$luks_part" "$luks_label"
 fi
+
+# ------------------------------------------------------------------------------
+
+
+
+# / *************************************************************************** /
+
+lvm_device="${target_part}3"       # LVM device, default is the system partition
+vg_name="${LVM_LABEL:-archlinux}"  # Default LVM volume group name is 'archlinux'
+root_size="${ROOT_SIZE:-50G}"      # Default root partition size is 50G
+
+encryption="${ENCRYPTION:-no}"     # Default encryption is 'no'
+
+if [[ "$encryption" == "yes" ]]; then
+  lvm_device="/dev/mapper/${ENCRYPTION_LABEL:-cryptdev}"
+fi
+# Create LVM volume group and logical volumes
+pvcreate "$lvm_device" && vgcreate "$vg_name" "$lvm_device"
+lvcreate -n root -L "$root_size" "$vg_name"  # Root logical volume
+lvcreate -n home -l 100%FREE "$vg_name"      # Home logical volume
+
+# ------------------------------------------------------------------------------
+
+
+
+# / *************************************************************************** /
+
+vg_name="${LVM_LABEL:-archlinux}"  # Default LVM volume group name is 'archlinux'
+
+efi_partition="${target_part}1"        # EFI partition
+boot_partition="${target_part}2"       # Boot partition
+
+mkfs.fat -F32 -n EFI "$efi_partition"  # Format EFI partition
+mkfs.ext4 -L BOOT "$boot_partition"    # Format boot partition
+
+for volume in root home; do
+  lv_path="/dev/mapper/${vg_name}-${volume}"  # Logical volume path
+  mkfs.btrfs -L "$volume" "$lv_path"          # Format logical volumes with Btrfs
+done
+
+# ------------------------------------------------------------------------------
