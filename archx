@@ -106,12 +106,13 @@ pacman -Syy  # Re-sync pacman, all Done!
 # / *************************************************************************** /
 
 target="/dev/${DISK:-sda}"  # Default target disk is 'sda'
+target_part=""              # Partition name of the target disk, empty by default
 
 # Use NVMe secure erase, otherwise use blkdiscard
 if [[ "$target" =~ ^/dev/nvme[0-9]+n[0-9]+$ ]]; then
-  nvme format "$target" --ses=1
+  nvme format "$target" --ses=1 && target_part="/dev/${target}p"
 else
-  blkdiscard -f "$target"
+  blkdiscard -f "$target" && target_part="/dev/$target"
 fi
 
 wipefs -af "$target"                # Wipe all filesystem signatures from the target disk
@@ -129,14 +130,16 @@ openssl enc -aes-256-ctr -pass pass:"$pass" -nosalt -in /dev/zero | \
 efi_size="${EFI_SIZE:-512M}"  # Default EFI partition size is 512M
 boot_size="${BOOT_SIZE:-1G}"  # Default boot partition size is 1G
 
-sys_type="8300"      # Default system partition type is '8300' (Linux filesystem)
-if [ "$ENCRYPTION" == "yes" ]; then
-    sys_type="8309"  # If encryption is enabled, set system partition type to '8309' (Linux filesystem with encryption)
+sys_type="8300"                 # Default system partition type is '8300' (Linux filesystem)
+encryption="${ENCRYPTION:-no}"  # Default encryption is 'no'
+
+if [[ "$encryption" == "yes" ]]; then
+  sys_type="8309"  # If encryption is enabled, set system partition type to '8309' (Linux filesystem with encryption)
 fi
 
 sgdisk -n 1:0:+${efi_size}  -t 1:ef00 \
        -n 2:0:+${boot_size} -t 2:8300 \
-       -n 3:0:0              -t 3:$sys_type "$target"
+       -n 3:0:0             -t 3:$sys_type "$target"
 
 
 partprobe $target    # Update partition's table, Done!
@@ -146,3 +149,25 @@ partprobe $target    # Update partition's table, Done!
 
 
 # / *************************************************************************** /
+
+# ( Optional ) Encrypt the system partition with LUKS
+encryption="${ENCRYPTION:-no}"  # Default encryption is 'no'
+
+if [[ "$encryption" == "yes" ]]; then
+  luks_part="${target_part}3"                 # LUKS partition
+  luks_label="${ENCRYPTION_LABEL:-cryptdev}"  # Default LUKS label is 'cryptdev'
+  luks_pass="$ENCRYPTION_PASSPHRASE"          # Passphrase for LUKS encryption
+
+  echo -n "$luks_pass" | cryptsetup luksFormat "$luks_part" \
+    --batch-mode \
+    --type luks2 \
+    --cipher aes-xts-plain64 \
+    --key-size 512 \
+    --hash sha512 \
+    --pbkdf pbkdf2 \
+    --pbkdf-force-iterations 100000 \
+    --label SYSTEM \
+    --verbose
+
+  echo -n "$luks_pass" | cryptsetup open "$luks_part" "$luks_label"
+fi
